@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mazegen"
+version = "1.0.0"
+description = "Reusable maze generator for the 42 A-Maze-ing activity"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+
+[tool.setuptools]
+py-modules = ["mazegen"]
+
+[dependency-groups]
+dev = [
+    "flake8",
+    "mypy",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

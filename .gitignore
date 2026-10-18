@@ -1,0 +1,36 @@
+# Documentation
+*.pdf
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# pdm
+.pdm-python
+.pdm-build/
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Visual Studio Code
+.vscode/
+
+# Python
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+output_maze.txt
