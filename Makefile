@@ -43,9 +43,6 @@ lint-strict:
 				@uv run flake8 a_maze_ing.py mazegen.py src
 				@uv run mypy a_maze_ing.py mazegen.py src --strict
 
-test:
-				@uv run python -m pytest tests -v
-
 
 help:
 				@printf "Usage: make [target]\n"
@@ -57,7 +54,6 @@ help:
 				@printf "$(CYAN)clean$(DEFAULT)		- Remove compiled Python files and caches\n"
 				@printf "$(CYAN)lint$(DEFAULT)		- Run linter and type checker to ensure code quality\n"
 				@printf "$(CYAN)lint-strict$(DEFAULT)	- Run linter and type checker with strict settings\n"
-				@printf "$(CYAN)test$(DEFAULT)		- Run tests using pytest\n"
 				@printf "$(CYAN)help$(DEFAULT)		- Show this help message\n"
 
-.PHONY:			install run package debug clean lint lint-strict test help
+.PHONY:			install run package debug clean lint lint-strict help

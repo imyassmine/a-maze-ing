@@ -2,35 +2,30 @@
 
 
 import sys
+
 from src.config.parser import MazeConfig
 from src.ui.display import build_maze, user_interaction
 
 
 def main() -> int:
+    """Generate a maze from a config file, then run the terminal viewer."""
     if len(sys.argv) != 2:
-        print("[STDERR] Usage: python3 a_maze_ing.py config.txt")
-
-    config_file_path = sys.argv[1]
+        print("Usage: python3 a_maze_ing.py <config_file>", file=sys.stderr)
+        return 1
     try:
-        maze_config = MazeConfig.from_config(config_file_path)
+        maze_config = MazeConfig.from_config(sys.argv[1])
         result = build_maze(maze_config)
-        if not result:
+        if result is None:
             return 1
         maze, pattern = result
-        entry = maze_config.entry
-        exit_pos = maze_config.exit_pos
-        output = maze_config.output_file
-        start_cell = maze.grid[entry[1]][entry[0]]
-        end_cell = maze.grid[exit_pos[1]][exit_pos[0]]
-        directions = maze.find_shortest_path(start_cell, end_cell)
-        path = maze.trace_path(start_cell, directions)
-        user_interaction(maze, maze_config, entry,
-                         exit_pos, pattern, path, output)
+        user_interaction(maze, maze_config, maze_config.entry,
+                         maze_config.exit_pos, pattern,
+                         maze_config.output_file)
         return 0
     except (FileNotFoundError, ValueError, OSError) as error:
-        print(f"[STDERR] {error}")
-        return 0
+        print(f"[STDERR] {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -32,34 +32,39 @@ Access to a solution
 - `generator.solution_path` returns the same path as coordinates.
 - `generator.find_shortest_path(start, end)` can be used directly if needed.
 
-The module also provides `write_output()` to write the standard hexadecimal
-maze file format used by the activity.
+The module also provides `write_output()` to export the maze in the
+standard hexadecimal file format.
 """
 
 from __future__ import annotations
 
-from random import Random
+import sys
 from collections import deque
+from random import Random
+
+DIRECTIONS = ("North", "East", "South", "West")
+OPPOSITE = {
+    "North": "South",
+    "East": "West",
+    "South": "North",
+    "West": "East",
+}
+DELTAS = {
+    "North": (0, -1),
+    "East": (1, 0),
+    "South": (0, 1),
+    "West": (-1, 0),
+}
+WALL_BITS = {"West": 8, "South": 4, "East": 2, "North": 1}
 
 
 class Cell:
     """Represents a single cell in the maze."""
-    def __init__(
-        self,
-        position: tuple[int, int],
-        walls: dict[str, bool] | None = None,
-        visited: bool = False,
-    ):
+
+    def __init__(self, position: tuple[int, int]):
         self.position = position
-        if walls is not None:
-            self.walls = walls
-        else:
-            self.walls = {
-                "North": True,
-                "East": True,
-                "South": True,
-                "West": True}
-        self.visited = visited
+        self.walls = {direction: True for direction in DIRECTIONS}
+        self.visited = False
 
 
 class MazeGenerator:
@@ -103,13 +108,10 @@ class MazeGenerator:
         self.solution_path: list[tuple[int, int]] = []
 
     def create_grid(self) -> list[list[Cell]]:
-        grid: list[list[Cell]] = []
-        for y in range(self.height):
-            row: list[Cell] = []
-            for x in range(self.width):
-                row.append(Cell((x, y)))
-            grid.append(row)
-        return grid
+        return [
+            [Cell((x, y)) for x in range(self.width)]
+            for y in range(self.height)
+        ]
 
     def generate(
         self,
@@ -168,37 +170,28 @@ class MazeGenerator:
         return neighbors
 
     def break_wall(self, cell: Cell, direction: str) -> None:
-        """Breaks the wall in the specified direction for the given cell."""
-        if direction not in cell.walls:
+        """Break the wall in the given direction, on both sides."""
+        self._set_wall(cell, direction, False)
+
+    def restore_wall(self, cell: Cell, direction: str) -> None:
+        """Restore the wall in the given direction, on both sides."""
+        self._set_wall(cell, direction, True)
+
+    def _set_wall(self, cell: Cell, direction: str, closed: bool) -> None:
+        """Set a wall on a cell and on its direct neighbour, if any."""
+        if direction not in DELTAS:
             raise ValueError(
                 f"Invalid direction: {direction}. "
-                "Valid directions are 'North', 'East', 'South', 'West'."
+                f"Valid directions are {', '.join(DIRECTIONS)}."
             )
         x, y = cell.position
-        if direction == "North":
-            if y - 1 < 0:
-                return
-            neighbor_cell = self.grid[y - 1][x]
-            neighbor_cell.walls["South"] = False
-            cell.walls[direction] = False
-        elif direction == "East":
-            if x + 1 >= self.width:
-                return
-            neighbor_cell = self.grid[y][x + 1]
-            neighbor_cell.walls["West"] = False
-            cell.walls[direction] = False
-        elif direction == "South":
-            if y + 1 >= self.height:
-                return
-            neighbor_cell = self.grid[y + 1][x]
-            neighbor_cell.walls["North"] = False
-            cell.walls[direction] = False
-        elif direction == "West":
-            if x - 1 < 0:
-                return
-            neighbor_cell = self.grid[y][x - 1]
-            neighbor_cell.walls["East"] = False
-            cell.walls[direction] = False
+        dx, dy = DELTAS[direction]
+        neighbor_x, neighbor_y = x + dx, y + dy
+        if not (0 <= neighbor_x < self.width
+                and 0 <= neighbor_y < self.height):
+            return
+        cell.walls[direction] = closed
+        self.grid[neighbor_y][neighbor_x].walls[OPPOSITE[direction]] = closed
 
     def add_loops(
         self,
@@ -226,20 +219,14 @@ class MazeGenerator:
                 broken += 1
 
     def get_all_closed_walls(self) -> list[tuple[Cell, str]]:
-        """Return all closed East and South walls."""
+        """Return all closed East and South walls, each wall only once."""
         closed_walls: list[tuple[Cell, str]] = []
-        for y in range(self.height):
-            for x in range(self.width):
-                cell = self.grid[y][x]
-                for direction, is_closed in cell.walls.items():
-                    if (
-                        (
-                            direction == "East"
-                            or direction == "South"
-                        )
-                        and is_closed
-                    ):
-                        closed_walls.append((cell, direction))
+        for row in self.grid:
+            for cell in row:
+                if cell.walls["East"]:
+                    closed_walls.append((cell, "East"))
+                if cell.walls["South"]:
+                    closed_walls.append((cell, "South"))
         return closed_walls
 
     def try_break_wall_safely(self, cell: Cell, direction: str) -> bool:
@@ -325,39 +312,6 @@ class MazeGenerator:
                     return False
         return True
 
-    def restore_wall(self, cell: Cell, direction: str) -> None:
-        """Restores the wall in the specified direction for the given cell."""
-        if direction not in cell.walls:
-            raise ValueError(
-                f"Invalid direction: {direction}. "
-                "Valid directions are 'North', 'East', 'South', 'West'."
-            )
-        x, y = cell.position
-        if direction == "North":
-            if y - 1 < 0:
-                return
-            neighbor_cell = self.grid[y - 1][x]
-            neighbor_cell.walls["South"] = True
-            cell.walls[direction] = True
-        elif direction == "East":
-            if x + 1 >= self.width:
-                return
-            neighbor_cell = self.grid[y][x + 1]
-            neighbor_cell.walls["West"] = True
-            cell.walls[direction] = True
-        elif direction == "South":
-            if y + 1 >= self.height:
-                return
-            neighbor_cell = self.grid[y + 1][x]
-            neighbor_cell.walls["North"] = True
-            cell.walls[direction] = True
-        elif direction == "West":
-            if x - 1 < 0:
-                return
-            neighbor_cell = self.grid[y][x - 1]
-            neighbor_cell.walls["East"] = True
-            cell.walls[direction] = True
-
     def find_shortest_path(self, start: Cell, end: Cell) -> list[str]:
         """Find the shortest path from start to end with BFS.
 
@@ -394,7 +348,7 @@ class MazeGenerator:
             directions: list[str]
             ) -> list[tuple[int, int]]:
         """Convert a list of directions into a list of coordinates."""
-        if directions == []:
+        if not directions:
             return []
         x, y = start.position
         cells: list[tuple[int, int]] = [(x, y)]
@@ -411,81 +365,30 @@ class MazeGenerator:
         return cells
 
     def get_binary(self, cell: Cell) -> int:
-        """Encode a cell's walls as an integer using bit flags.
-
-        Parameters
-        ----------
-        cell : Cell
-            The cell whose walls should be encoded.
-
-        Returns
-        -------
-        int
-        An integer between 0 and 15 representing the closed walls.
-        """
-        dico = cell.walls
-        bit = int()
-        if dico["West"]:
-            bit = bit << 1 | 1
-        else:
-            bit = bit << 1
-        if dico["South"]:
-            bit = bit << 1 | 1
-        else:
-            bit = bit << 1
-        if dico["East"]:
-            bit = bit << 1 | 1
-        else:
-            bit = bit << 1
-        if dico["North"]:
-            bit = bit << 1 | 1
-        else:
-            bit = bit << 1
-        return bit
+        """Encode a cell's closed walls as a 4-bit integer."""
+        return sum(bit for direction, bit in WALL_BITS.items()
+                   if cell.walls[direction])
 
     def write_output(
         self,
-        maze: MazeGenerator,
         entry: tuple[int, int],
         exit_pos: tuple[int, int],
         path: list[str],
         output_file: str,
     ) -> None:
-        """Write the maze in hexadecimal, entry, exit,
-            and shortest path to an output file.
+        """Write the maze, entry/exit and solution to a file.
 
-        Parameters
-        ----------
-        maze : Maze
-            The generated maze whose grid will be encoded.
-        entry : tuple[int, int]
-            The (x, y) coordinates of the maze entry.
-        exit_pos : tuple[int, int]
-            The (x, y) coordinates of the maze exit.
-        path : list[str]
-            The shortest path from entry to exit, as a list of full
-            direction words (e.g. "North", "East").
-        output_file : str
-            The path of the file to write the maze data to.
+        The output contains one hexadecimal row per maze row, a blank line,
+        the entry coordinates, the exit coordinates and the solution as a
+        string of N/E/S/W directions.
         """
-        hexa_lines = str()
-        path_line = str()
-        for lst in maze.grid:
-            for cell in lst:
-                hexa_lines += hex(self.get_binary(cell))[2:].upper()
-            hexa_lines += "\n"
-        hexa_lines += "\n"
-
-        for coord in path:
-            if coord == "North":
-                path_line += "N"
-            elif coord == "South":
-                path_line += "S"
-            elif coord == "East":
-                path_line += "E"
-            else:
-                path_line += "W"
-        path_line += "\n"
+        hexa_lines = "".join(
+            "".join(hex(self.get_binary(cell))[2:].upper() for cell in row)
+            + "\n"
+            for row in self.grid
+        ) + "\n"
+        letters = {"North": "N", "East": "E", "South": "S", "West": "W"}
+        path_line = "".join(letters[direction] for direction in path) + "\n"
 
         try:
             with open(output_file, "w") as fd:
@@ -494,7 +397,8 @@ class MazeGenerator:
                 fd.write(f"{exit_pos[0]},{exit_pos[1]}\n")
                 fd.write(path_line)
         except OSError as msg:
-            print(f"[STDERR] Error opening file '{output_file}': {msg}\n")
+            print(f"[STDERR] Error opening file '{output_file}': {msg}",
+                  file=sys.stderr)
 
 
 __all__ = ["Cell", "MazeGenerator"]
